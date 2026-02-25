@@ -24,6 +24,7 @@ local landForSaleTimer = 0
 local landForSaleTimerRate = 6000
 
 local towerDefMsgsToWrite = {}
+local worldMsgsToWrite = {}
 
 
 local smzWindow = nil
@@ -110,6 +111,19 @@ local function writeTowerDefMsgs()
     end
 end 
 
+local function writeWorldMsgs()
+    local jsonStrings = {}
+    for _, msgInfo in ipairs(worldMsgsToWrite) do
+        local jsonString = encodeToJson(msgInfo)
+        jsonString = markStringWithDelimiters(jsonString, "###")
+        table.insert(jsonStrings, jsonString)
+    end
+    if #jsonStrings > 0 then 
+        api.File:Write("sermeatball_world_msgs.txt", table.concat(jsonStrings, "\n"))
+        worldMsgsToWrite = {}
+    end
+end
+
 local function checkLandForSale()
     -- Placeholder for future implementation
 end
@@ -120,6 +134,7 @@ local function OnUpdate(dt)
         zoneCheckTimer = 0
         checkZoneStates()
         writeTowerDefMsgs()
+        writeWorldMsgs()
     end
 end 
 
@@ -138,16 +153,16 @@ local function OnLoad()
             local iconName = string.format("%s_%s", towerDefInfo.iconKey, towerDefInfo.step)
             -- api.Log:Info(string.format("Tower Defense Event - Zone Group: %s, Text: %s, Title: %s, Step: %s, Icon: %s", zoneGroup, text, title, step, iconName))
             -- Store the message to write at 60 second intervals
-            table.insert(towerDefMsgsToWrite, {
-                zoneGroup = zoneGroup,
-                text = text,
-                title = title,
-                step = step,
-                iconName = iconName
-            })
+            table.insert(towerDefMsgsToWrite, towerDefInfo)
         end,
         GRADE_ENCHANT_BROADCAST = function(characterName, resultCode, itemLink, oldGrade, newGrade)
 
+        end,
+        WORLD_MESSAGE = function(msg, iconKey, sextants, info) 
+            local iconName = iconKey or "None"
+            local infoStr = info or "None"
+            -- api.Log:Info(string.format("World Message Event - Msg: %s, Icon: %s, Sextants: %s, Info: %s", msg, iconName, tostring(sextants), infoStr))
+            table.insert(worldMsgsToWrite, {msg = msg, iconKey = iconName, sextants = sextants, info = info})
         end,
     }
     smzWindow:SetHandler("OnEvent", function(this, event, ...)
