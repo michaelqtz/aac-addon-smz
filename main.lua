@@ -25,9 +25,31 @@ local landForSaleTimerRate = 6000
 
 local towerDefMsgsToWrite = {}
 local worldMsgsToWrite = {}
-
+local regradeMsgsToWrite = {}
 
 local smzWindow = nil
+
+local ENCHANT_RESULT = {
+    BREAK = 0,
+    DOWNGRADE = 1,
+    FAIL = 2,
+    SUCCESS = 3,
+    GREATE_SUCCESS = 4
+  }
+local ITEM_GRADES = {
+    [0] = "Crude",
+    [1] = "Basic",
+    [2] = "Grand",
+    [3] = "Rare",
+    [4] = "Arcane",
+    [5] = "Heroic",
+    [6] = "Unique",
+    [7] = "Celestial",
+    [8] = "Divine",
+    [9] = "Epic",
+    [10] = "Legendary",
+    [11] = "Mythic"
+}
 
 
 local function encodeToJson(tbl)
@@ -59,6 +81,13 @@ local function markStringWithDelimiters(str, delimiter)
     delimiter = delimiter or "###" -- Default delimiter if none is provided
     return delimiter .. str .. delimiter
 end
+
+local function itemIdFromItemLinkText(itemLinkText)
+    local itemIdStr = string.sub(itemLinkText, 3)
+    itemIdStr = split(itemIdStr, ",")
+    itemIdStr = itemIdStr[1]
+    return itemIdStr
+end 
 
 local function checkZoneStates()
     local jsonStrings = {}
@@ -124,6 +153,19 @@ local function writeWorldMsgs()
     end
 end
 
+local function writeRegradeMsgs()
+    local jsonStrings = {}
+    for _, msgInfo in ipairs(regradeMsgsToWrite) do
+        local jsonString = encodeToJson(msgInfo)
+        jsonString = markStringWithDelimiters(jsonString, "###")
+        table.insert(jsonStrings, jsonString)
+    end
+    if #jsonStrings > 0 then 
+        api.File:Write("sermeatball_regrade_msgs.txt", table.concat(jsonStrings, "\n"))
+        regradeMsgsToWrite = {}
+    end
+end 
+
 local function checkLandForSale()
     -- Placeholder for future implementation
 end
@@ -135,8 +177,11 @@ local function OnUpdate(dt)
         checkZoneStates()
         writeTowerDefMsgs()
         writeWorldMsgs()
+        writeRegradeMsgs()
     end
 end 
+
+
 
 local function OnLoad()
     local settings = api.GetSettings("sermeatball")
@@ -156,7 +201,23 @@ local function OnLoad()
             table.insert(towerDefMsgsToWrite, towerDefInfo)
         end,
         GRADE_ENCHANT_BROADCAST = function(characterName, resultCode, itemLink, oldGrade, newGrade)
-
+            local itemId = itemIdFromItemLinkText(itemLink)
+            local itemInfo = api.Item:GetItemInfoByType(tonumber(itemId))
+            local itemName = itemInfo and itemInfo.name or "Unknown Item"
+            local oldGradeText = ITEM_GRADES[oldGrade] or "Unknown Grade"
+            local newGradeText = ITEM_GRADES[newGrade] or "Unknown Grade"
+            local msgInfo = {
+                characterName = characterName,
+                resultCode = resultCode,
+                itemLink = itemLink,
+                itemId = itemId,
+                itemName = itemName,
+                oldGrade = oldGradeText,
+                newGrade = newGradeText
+            }
+            
+            -- api.Log:Info(string.format("Regrade Event - Character: %s, Result: %s, Item: %s, Old Grade: %s, New Grade: %s", characterName, resultCode, itemLink, oldGrade, newGrade))
+            table.insert(regradeMsgsToWrite, msgInfo)
         end,
         WORLD_MESSAGE = function(msg, iconKey, sextants, info) 
             local iconName = iconKey or "None"
