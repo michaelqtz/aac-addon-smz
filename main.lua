@@ -51,6 +51,15 @@ local ITEM_GRADES = {
     [11] = "Mythic"
 }
 
+function split(s, sep)
+    local fields = {}
+    
+    local sep = sep or " "
+    local pattern = string.format("([^%s]+)", sep)
+    string.gsub(s, pattern, function(c) fields[#fields + 1] = c end)
+    
+    return fields
+end
 
 local function encodeToJson(tbl)
     local function escapeStr(s)
